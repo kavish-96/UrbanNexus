@@ -10,7 +10,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/cities" element={<CitiesPage />} />
-        <Route path="/dashboard/:cityName" element={<DashboardPage />} />
+        <Route path="/dashboard/:cityId" element={<DashboardPage />} />
         <Route path="/simulation" element={<SimulationPage />} />
       </Routes>
     </Router>

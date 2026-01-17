@@ -1,19 +1,31 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Users, Activity, Filter, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ParticleBackground from '../components/ParticleBackground';
-
-const cities = [
-    { name: "New York City", state: "New York", risk: "Moderate", riskColor: "bg-amber-500", pop: "8.3M", coords: "40.7128°N, 74.0060°W" },
-    { name: "Los Angeles", state: "California", risk: "High Risk", riskColor: "bg-red-500", pop: "4.0M", coords: "34.0522°N, 118.2437°W" },
-    { name: "Chicago", state: "Illinois", risk: "Moderate", riskColor: "bg-amber-500", pop: "2.7M", coords: "41.8781°N, 87.6298°W" },
-    { name: "Houston", state: "Texas", risk: "Low Risk", riskColor: "bg-emerald-500", pop: "2.3M", coords: "29.7604°N, 95.3698°W" },
-    { name: "Phoenix", state: "Arizona", risk: "High Risk", riskColor: "bg-red-500", pop: "1.7M", coords: "33.4484°N, 112.0740°W" },
-    { name: "Seattle", state: "Washington", risk: "Low Risk", riskColor: "bg-emerald-500", pop: "0.7M", coords: "47.6062°N, 122.3321°W" },
-];
+import { getCities } from '../services/api';
 
 const CitiesPage = () => {
+    const [cities, setCities] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchCities = async () => {
+            try {
+                const data = await getCities();
+                console.log("Fetched Cities Data:", data); // Debugging: Check exact field names
+                setCities(data);
+            } catch (error) {
+                console.error("Failed to load cities", error);
+                setError("Failed to connect to backend API. Please check if the server is running at http://120.120.122.174:8000");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchCities();
+    }, []);
     return (
         <div className="relative min-h-screen bg-slate-950 font-sans text-white selection:bg-cyan-500/30 selection:text-cyan-200">
             <ParticleBackground />
@@ -65,9 +77,16 @@ const CitiesPage = () => {
 
                 {/* Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-20">
-                    {cities.map((city, index) => (
+                    {loading ? (
+                        <div className="text-white text-center col-span-full">Loading cities...</div>
+                    ) : error ? (
+                        <div className="text-red-400 text-center col-span-full bg-red-900/20 p-4 rounded-lg border border-red-500/50">
+                            <p className="font-bold">Error Loading Data</p>
+                            <p className="text-sm">{error}</p>
+                        </div>
+                    ) : cities.map((city, index) => (
                         <Link
-                            to={`/dashboard/${encodeURIComponent(city.name)}`}
+                            to={`/dashboard/${city.city_id}`}
                             key={index}
                         >
                             <motion.div
@@ -81,17 +100,18 @@ const CitiesPage = () => {
                                         <MapPin className="w-4 h-4" />
                                         <span className="text-sm">{city.state}</span>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${city.riskColor}`}>
-                                        {city.risk}
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white bg-slate-700`}>
+                                        View Data
                                     </span>
                                 </div>
 
-                                <h3 className="text-3xl font-bold mb-2 group-hover:text-cyan-400 transition-colors">{city.name}</h3>
+                                <h3 className="text-3xl font-bold mb-2 group-hover:text-cyan-400 transition-colors">{city.city_name}</h3>
 
                                 <div className="flex items-center gap-6 text-slate-400 text-sm font-medium mb-6">
                                     <div className="flex items-center gap-1.5">
                                         <Users className="w-4 h-4" />
-                                        {city.pop}
+                                        {/* Pop placeholder or from API if avail */}
+                                        --
                                     </div>
                                     <div className="flex items-center gap-1.5 text-cyan-400">
                                         <Activity className="w-4 h-4" />
@@ -100,7 +120,7 @@ const CitiesPage = () => {
                                 </div>
 
                                 <div className="text-xs text-slate-600 font-mono">
-                                    {city.coords}
+                                    {city.latitude && city.longitude ? `${city.latitude}°N, ${city.longitude}°W` : ''}
                                 </div>
                             </motion.div>
                         </Link>

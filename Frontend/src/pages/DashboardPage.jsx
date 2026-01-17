@@ -3,279 +3,241 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     ArrowLeft, Clock, Thermometer, Wind, Car, Droplets,
-    Activity, Info, ChevronRight, TrendingUp
+    Activity, Info, ChevronRight, TrendingUp, Sprout
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import ParticleBackground from '../components/ParticleBackground';
+import { getDashboardData } from '../services/api';
 
-// --- Mock Data ---
-const CITY_DATA = {
-    "New York City": {
-        temp: { val: "30", unit: "°C", label: "Temperature", trend: "+2°", color: "text-sky-400", bg: "bg-sky-500/10", icon: Thermometer, chartData: [22, 24, 23, 25, 28, 27, 30] },
-        aqi: { val: "147", unit: "AQI", label: "Air Quality", trend: "Unhealthy", color: "text-emerald-400", bg: "bg-emerald-500/10", icon: Wind, chartData: [120, 130, 125, 140, 135, 142, 147] },
-        traffic: { val: "8", unit: "/10", label: "Traffic Density", sub: "Avg speed: 20 km/h", color: "text-purple-400", bg: "bg-purple-500/10", icon: Car, chartData: [3, 4, 6, 8, 9, 8, 8] },
-        humidity: { val: "57", unit: "%", label: "Humidity", color: "text-blue-400", bg: "bg-blue-500/10", icon: Droplets, chartData: [50, 52, 55, 53, 56, 58, 57] },
-        health: { score: 83, status: "Low Risk", desc: "Composite score based on air quality, weather conditions, and traffic patterns." },
-        insight: "City conditions are within acceptable ranges. Air quality contributes 36% to overall health impact.",
-        correlations: [
-            { t1: "Weather", t2: "Air Quality", desc: "Current temperature of 30°C combined with 57% humidity affects pollutant dispersion patterns." },
-            { t1: "Traffic", t2: "Health", desc: "Traffic density level 8/10 contributes approximately 24% to current air pollution levels." }
-        ]
-    },
-    "Los Angeles": {
-        temp: { val: "28", unit: "°C", label: "Temperature", trend: "+1°", color: "text-sky-400", bg: "bg-sky-500/10", icon: Thermometer, chartData: [26, 27, 28, 29, 28, 27, 28] },
-        aqi: { val: "162", unit: "AQI", label: "Air Quality", trend: "Poor", color: "text-red-400", bg: "bg-red-500/10", icon: Wind, chartData: [150, 160, 155, 158, 162, 160, 162] },
-        traffic: { val: "9", unit: "/10", label: "Traffic Density", sub: "Avg speed: 15 km/h", color: "text-purple-400", bg: "bg-purple-500/10", icon: Car, chartData: [7, 8, 9, 9, 10, 9, 9] },
-        humidity: { val: "45", unit: "%", label: "Humidity", color: "text-blue-400", bg: "bg-blue-500/10", icon: Droplets, chartData: [40, 42, 45, 43, 44, 46, 45] },
-        health: { score: 65, status: "High Risk", desc: "Elevated risk due to high traffic emissions and stagnant air." },
-        insight: "High traffic congestion is significantly degrading local air quality today.",
-        correlations: [
-            { t1: "Traffic", t2: "Air Quality", desc: "Morning rush hour traffic has spiked NO2 levels by 40% in downtown areas." },
-            { t1: "Heat", t2: "Health", desc: "Dry heat combined with smog poses respiratory risks for sensitive groups." }
-        ]
-    },
-    "Chicago": {
-        temp: { val: "22", unit: "°C", label: "Temperature", trend: "-1°", color: "text-sky-400", bg: "bg-sky-500/10", icon: Thermometer, chartData: [20, 21, 22, 23, 22, 21, 22] },
-        aqi: { val: "85", unit: "AQI", label: "Air Quality", trend: "Good", color: "text-emerald-400", bg: "bg-emerald-500/10", icon: Wind, chartData: [60, 70, 75, 80, 82, 85, 85] },
-        traffic: { val: "7", unit: "/10", label: "Traffic Density", sub: "Avg speed: 28 km/h", color: "text-purple-400", bg: "bg-purple-500/10", icon: Car, chartData: [5, 6, 7, 6, 7, 7, 7] },
-        humidity: { val: "60", unit: "%", label: "Humidity", color: "text-blue-400", bg: "bg-blue-500/10", icon: Droplets, chartData: [55, 58, 60, 62, 60, 59, 60] },
-        health: { score: 88, status: "Low Risk", desc: "Conditions are favorable for outdoor activities." },
-        insight: "Air quality is good despite moderate traffic flow.",
-        correlations: [
-            { t1: "Wind", t2: "Air Quality", desc: "Lake breeze is effectively dispersing urban pollutants." },
-            { t1: "Traffic", t2: "Noise", desc: "Traffic noise levels are slightly elevated in the loop area." }
-        ]
-    },
-    "Houston": {
-        temp: { val: "32", unit: "°C", label: "Temperature", trend: "+3°", color: "text-sky-400", bg: "bg-sky-500/10", icon: Thermometer, chartData: [30, 31, 32, 33, 32, 31, 32] },
-        aqi: { val: "95", unit: "AQI", label: "Air Quality", trend: "Moderate", color: "text-amber-400", bg: "bg-amber-500/10", icon: Wind, chartData: [90, 85, 88, 92, 94, 95, 95] },
-        traffic: { val: "6", unit: "/10", label: "Traffic Density", sub: "Avg speed: 35 km/h", color: "text-purple-400", bg: "bg-purple-500/10", icon: Car, chartData: [5, 6, 5, 6, 6, 6, 6] },
-        humidity: { val: "75", unit: "%", label: "Humidity", color: "text-blue-400", bg: "bg-blue-500/10", icon: Droplets, chartData: [70, 72, 74, 75, 76, 75, 75] },
-        health: { score: 78, status: "Low Risk", desc: "High humidity is the primary concern today.", chartData: [70, 75, 78, 80, 79, 78, 78] },
-        insight: "Heat index is high due to 75% humidity.",
-        correlations: [
-            { t1: "Humidity", t2: "Comfort", desc: "High humidity is driving the 'Real Feel' temperature to 38°C." },
-            { t1: "Industry", t2: "Air", desc: "Industrial emissions are remaining stable." }
-        ]
-    },
-    "Phoenix": {
-        temp: { val: "38", unit: "°C", label: "Temperature", trend: "+5°", color: "text-red-400", bg: "bg-red-500/10", icon: Thermometer, chartData: [35, 36, 37, 38, 38, 38, 38] },
-        aqi: { val: "110", unit: "AQI", label: "Air Quality", trend: "Unhealthy for Sensitive", color: "text-amber-400", bg: "bg-amber-500/10", icon: Wind, chartData: [100, 105, 108, 110, 109, 110, 110] },
-        traffic: { val: "5", unit: "/10", label: "Traffic Density", sub: "Avg speed: 45 km/h", color: "text-purple-400", bg: "bg-purple-500/10", icon: Car, chartData: [4, 5, 4, 5, 5, 5, 5] },
-        humidity: { val: "15", unit: "%", label: "Humidity", color: "text-blue-400", bg: "bg-blue-500/10", icon: Droplets, chartData: [18, 16, 15, 15, 14, 15, 15] },
-        health: { score: 70, status: "High Risk", desc: "Extreme heat warning in effect." },
-        insight: "Caution advised due to extreme temperatures.",
-        correlations: [
-            { t1: "Heat", t2: "Ozone", desc: "Intense sunlight is accelerating ground-level ozone formation." },
-            { t1: "Dryness", t2: "Dust", desc: "Low humidity increases risk of dust suspension." }
-        ]
-    },
-    "Seattle": {
-        temp: { val: "18", unit: "°C", label: "Temperature", trend: "0°", color: "text-sky-400", bg: "bg-sky-500/10", icon: Thermometer, chartData: [16, 17, 18, 17, 18, 18, 18] },
-        aqi: { val: "42", unit: "AQI", label: "Air Quality", trend: "Excellent", color: "text-emerald-400", bg: "bg-emerald-500/10", icon: Wind, chartData: [40, 42, 41, 43, 42, 42, 42] },
-        traffic: { val: "7", unit: "/10", label: "Traffic Density", sub: "Avg speed: 25 km/h", color: "text-purple-400", bg: "bg-purple-500/10", icon: Car, chartData: [6, 7, 7, 7, 7, 7, 7] },
-        humidity: { val: "80", unit: "%", label: "Humidity", color: "text-blue-400", bg: "bg-blue-500/10", icon: Droplets, chartData: [78, 79, 80, 81, 80, 80, 80] },
-        health: { score: 92, status: "Low Risk", desc: "Optimal environmental conditions." },
-        insight: "Air quality is excellent following recent rain.",
-        correlations: [
-            { t1: "Rain", t2: "Air Quality", desc: "Precipitation has effectively washed particulates from the air." },
-            { t1: "Clouds", t2: "Temp", desc: "Cloud cover is moderating temperatures." }
-        ]
-    }
-};
+// --- Sub-components (Restored) ---
 
-const DEFAULT_DATA = CITY_DATA["New York City"];
-
-// --- Components ---
-
-const StatCard = ({ data }) => (
-    <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm hover:border-slate-700 transition-all h-full">
-        <div className="flex justify-between items-start mb-4">
-            <div className={`w-10 h-10 rounded-lg ${data.bg} flex items-center justify-center`}>
-                <data.icon className={`w-5 h-5 ${data.color}`} />
-            </div>
-            {data.trend && <span className={`text-xs font-bold ${data.color}`}>{data.trend}</span>}
-        </div>
-        <div className="flex items-end gap-2 mb-1">
-            <span className="text-3xl font-bold text-white">{data.val}</span>
-            <span className="text-sm text-slate-500 font-medium mb-1.5">{data.unit}</span>
-        </div>
-        <div className="text-slate-400 text-sm">{data.label}</div>
-        {data.sub && <div className="text-slate-500 text-xs mt-1">{data.sub}</div>}
-    </div>
-);
-
-const Gauge = ({ score }) => {
-    const radius = 50;
-    const normalizedScore = Math.min(100, Math.max(0, score));
-
-    return (
-        <div className="relative w-32 h-32 flex items-center justify-center">
-            {/* Background Circle */}
-            <svg className="w-full h-full transform -rotate-90">
-                <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="#1e293b"
-                    strokeWidth="10"
-                    fill="transparent"
-                />
-                <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke={score > 70 ? "#22c55e" : score > 50 ? "#f59e0b" : "#ef4444"}
-                    strokeWidth="10"
-                    fill="transparent"
-                    strokeDasharray="351.86"
-                    strokeDashoffset={351.86 - (351.86 * score) / 100}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000 ease-out"
-                />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={`text-3xl font-bold ${score > 70 ? "text-green-400" : score > 50 ? "text-amber-400" : "text-red-400"}`}>{score}</span>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mt-1">Health Score</span>
-            </div>
-        </div>
-    );
-};
-
-const InteractiveSparkline = ({ data, color, height = 50 }) => {
-    const [hover, setHover] = useState(null);
-    const svgRef = useRef(null);
-    const width = 100; // viewBox width
-
-    // Normalize data points to path
-    const max = Math.max(...data);
-    const min = Math.min(...data);
-    const range = max - min || 1;
-
-    // Create Points
-    const points = data.map((val, i) => {
-        const x = (i / (data.length - 1)) * width;
-        const y = height - ((val - min) / range) * (height * 0.6) - (height * 0.2); // Padding
-        return { x, y, val };
-    });
-
-    const pathD = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
-    const areaD = `${pathD} V ${height} H 0 Z`;
-
-    const handleMouseMove = (e) => {
-        if (!svgRef.current) return;
-        const rect = svgRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const viewBoxX = (x / rect.width) * width;
-
-        // Find closest point
-        const closest = points.reduce((prev, curr) =>
-            Math.abs(curr.x - viewBoxX) < Math.abs(prev.x - viewBoxX) ? curr : prev
-        );
-
-        setHover(closest);
+const InteractiveSparkline = ({ data, color, height = 40 }) => {
+    // Determine color class -> hex for SVG
+    const getColorHex = (c) => {
+        if (c.includes("sky")) return "#38bdf8";
+        if (c.includes("emerald")) return "#34d399";
+        if (c.includes("rose")) return "#fb7185";
+        if (c.includes("purple")) return "#c084fc";
+        if (c.includes("amber")) return "#fbbf24";
+        if (c.includes("blue")) return "#60a5fa";
+        return "#94a3b8"; // Slate-400
     };
 
+    const stroke = getColorHex(color);
+    const max = Math.max(...data) || 1;
+    const min = Math.min(...data) || 0;
+    const range = max - min || 1;
+
+    // Normalize points
+    const points = data.map((val, i) => {
+        const x = (i / (data.length - 1)) * 100;
+        const y = 100 - ((val - min) / range) * 100;
+        return `${x},${y}`;
+    }).join(" ");
+
     return (
-        <div
-            className="relative h-12 w-full cursor-crosshair"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHover(null)}
-        >
-            <svg
-                ref={svgRef}
-                className="w-full h-full overflow-visible"
-                viewBox={`0 0 ${width} ${height}`}
-                preserveAspectRatio="none"
-            >
-                {/* Gradient Definition */}
-                <defs>
-                    <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.2" className={color} />
-                        <stop offset="100%" stopColor="currentColor" stopOpacity="0" className={color} />
-                    </linearGradient>
-                </defs>
-
-                {/* Area */}
-                <path d={areaD} fill={`url(#grad-${color})`} />
-
-                {/* Line */}
-                <path
-                    d={pathD}
+        <div className={`w-full overflow-hidden`} style={{ height: `${height}px` }}>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                <motion.path
+                    d={`M ${points}`}
                     fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className={color}
+                    stroke={stroke}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    initial={{ pathLength: 0, opacity: 0 }}
+                    animate={{ pathLength: 1, opacity: 1 }}
+                    transition={{ duration: 1.5, ease: "easeInOut" }}
                 />
-
-                {/* Hover Indicator */}
-                {hover && (
-                    <>
-                        <line
-                            x1={hover.x} y1="0"
-                            x2={hover.x} y2={height}
-                            stroke="white"
-                            strokeWidth="1"
-                            strokeDasharray="2 2"
-                            className="transition-all duration-75"
-                        />
-                        <circle
-                            cx={hover.x} cy={hover.y} r="3"
-                            fill="white"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            className={color}
-                        />
-                    </>
-                )}
             </svg>
-
-            {/* Tooltip */}
-            {hover && (
-                <div
-                    className="absolute bottom-full mb-2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs shadow-xl pointer-events-none z-10 w-24"
-                    style={{ left: `${(hover.x / width) * 100}%`, transform: 'translateX(-50%)' }}
-                >
-                    <div className="font-bold text-white mb-0.5">{hover.val}</div>
-                    <div className={`font-mono ${color}`}>Value</div>
-                </div>
-            )}
         </div>
     );
 };
 
-const DomainCard = ({ title, value, unit, color, icon: Icon, chartData }) => (
-    <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm hover:border-slate-700 transition-all group overflow-visible">
-        <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded bg-slate-800 flex items-center justify-center`}>
-                    <Icon className={`w-4 h-4 ${color}`} />
-                </div>
-                <span className="text-white font-medium">{title}</span>
+const StatCard = ({ data }) => {
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm relative overflow-hidden group hover:bg-slate-900/60 transition-colors"
+        >
+            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${data.color}`}>
+                <data.icon size={64} />
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors" />
+
+            <div className="relative z-10">
+                <div className="flex justify-between items-start mb-4">
+                    <div className={`p-2 rounded-lg ${data.bg} ${data.color}`}>
+                        <data.icon size={20} />
+                    </div>
+                </div>
+
+                <div className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-1">{data.label}</div>
+                <div className="flex items-baseline gap-2 mb-4">
+                    <span className="text-3xl font-bold text-white tracking-tight">{data.val}</span>
+                    <span className={`text-sm font-medium items-center gap-1 ${data.trend === 'Good' ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {data.unit}
+                    </span>
+                </div>
+
+                {/* Mini Chart */}
+                <div className="h-10 w-24 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <InteractiveSparkline data={data.chartData} color={data.color} />
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
+const Gauge = ({ score }) => {
+    // Score 0-100.
+    const r = 40;
+    const c = 2 * Math.PI * r;
+    const offset = c - (score / 100) * c;
+
+    return (
+        <div className="relative w-40 h-40 flex items-center justify-center">
+            {/* Background Circle */}
+            <svg className="w-full h-full -rotate-90">
+                <circle cx="50%" cy="50%" r={r} stroke="#1e293b" strokeWidth="8" fill="none" />
+                <motion.circle
+                    cx="50%"
+                    cy="50%"
+                    r={r}
+                    stroke={score > 70 ? "#34d399" : score > 50 ? "#fbbf24" : "#fb7185"}
+                    strokeWidth="8"
+                    fill="none"
+                    strokeDasharray={c}
+                    strokeDashoffset={c} // Init
+                    animate={{ strokeDashoffset: offset }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    strokeLinecap="round"
+                />
+            </svg>
+            <div className="absolute flex flex-col items-center">
+                <span className="text-4xl font-bold text-white">{score}</span>
+                <span className="text-xs text-slate-400 uppercase tracking-widest">Health</span>
+            </div>
         </div>
+    );
+};
 
-        <div className="flex items-end gap-2 mb-6">
-            <span className={`text-2xl font-bold ${color}`}>{value}</span>
-            <span className="text-xs text-slate-500 mb-1">{unit}</span>
+const DomainCard = ({ title, value, unit, color, icon: Icon, chartData }) => {
+    return (
+        <div className="bg-slate-900 border border-slate-800 p-5 rounded-xl hover:border-slate-700 transition-colors">
+            <div className="flex items-center gap-3 mb-4">
+                <div className={`p-2 rounded-lg bg-slate-800 ${color}`}>
+                    <Icon size={18} />
+                </div>
+                <span className="font-medium text-slate-300">{title}</span>
+            </div>
+            <div className="flex items-end justify-between">
+                <div>
+                    <span className="text-2xl font-bold text-white">{value}</span>
+                    <span className="text-xs text-slate-500 ml-1">{unit}</span>
+                </div>
+                {chartData && (
+                    <div className="w-16 h-8">
+                        <InteractiveSparkline data={chartData} color={color} height={32} />
+                    </div>
+                )}
+            </div>
         </div>
-
-        {/* Interactive Sparkline */}
-        <InteractiveSparkline data={chartData} color={color} />
-    </div>
-);
-
+    );
+};
 
 const DashboardPage = () => {
-    const { cityName } = useParams();
-    const city = decodeURIComponent(cityName || '');
-    const data = CITY_DATA[city] || DEFAULT_DATA;
+    const { cityId } = useParams();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        window.scrollTo(0, 0);
-    }, [city]);
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const apiData = await getDashboardData(cityId);
 
+                // Transform API data to Component format
+                const stats = apiData.latest_stats;
+                const transformed = {
+                    city: apiData.city,
+                    temp: {
+                        val: stats.temperature,
+                        unit: "°C",
+                        label: "Temperature",
+                        trend: "+0°", // Placeholder as API doesn't give trend yet
+                        color: "text-sky-400",
+                        bg: "bg-sky-500/10",
+                        icon: Thermometer,
+                        chartData: [stats.temperature - 2, stats.temperature - 1, stats.temperature] // Mock trend
+                    },
+                    aqi: {
+                        val: stats.aqi,
+                        unit: "AQI",
+                        label: "Air Quality",
+                        trend: stats.aqi > 100 ? "Poor" : "Good",
+                        color: stats.aqi > 100 ? "text-rose-400" : "text-emerald-400",
+                        bg: stats.aqi > 100 ? "bg-rose-500/10" : "bg-emerald-500/10",
+                        icon: Wind,
+                        chartData: [stats.aqi - 10, stats.aqi + 5, stats.aqi]
+                    },
+                    traffic: {
+                        val: stats.traffic_density,
+                        unit: "/10",
+                        label: "Traffic Density",
+                        sub: "Real-time index",
+                        color: "text-purple-400",
+                        bg: "bg-purple-500/10",
+                        icon: Car,
+                        chartData: [stats.traffic_density, stats.traffic_density, stats.traffic_density]
+                    },
+                    humidity: {
+                        val: stats.humidity,
+                        unit: "%",
+                        label: "Humidity",
+                        color: "text-blue-400",
+                        bg: "bg-blue-500/10",
+                        icon: Droplets,
+                        chartData: [stats.humidity, stats.humidity, stats.humidity]
+                    },
+                    agriculture: {
+                        val: apiData.recent_crops && apiData.recent_crops.length > 0 ? apiData.recent_crops[0].yield_amount : 0,
+                        unit: "tons/ha",
+                        label: "Crop Yield",
+                        color: "text-amber-400",
+                        bg: "bg-amber-500/10",
+                        icon: Sprout,
+                        chartData: [4, 4.2, 4.5, 4.3, 4.5] // Mock chart for now or map from history
+                    },
+                    health: {
+                        score: 100 - Math.round(stats.health_risk),
+                        status: stats.risk_level,
+                        desc: `Composite risk calculated from AQI and Traffic.`
+                    },
+                    insight: `Current risk level is ${stats.risk_level}. AQI is ${stats.aqi}.`,
+                    correlations: [
+                        { t1: "Weather", t2: "Air Quality", desc: "Current atmospheric conditions are influencing local pollution dispersion." },
+                        { t1: "Traffic", t2: "Health", desc: "Traffic congestion is a contributing factor to the current health risk index." }
+                    ]
+                };
+
+                setData(transformed);
+            } catch (err) {
+                console.error("Dashboard fetch error", err);
+                setError("Failed to load dashboard data.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (cityId) fetchData();
+        window.scrollTo(0, 0);
+    }, [cityId]);
+
+    if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-cyan-400">Loading City Data...</div>;
+    if (error) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-rose-400">{error}</div>;
+    if (!data) return null;
     return (
         <div className="relative min-h-screen bg-slate-950 font-sans text-white selection:bg-cyan-500/30 selection:text-cyan-200">
             <ParticleBackground />
@@ -290,7 +252,7 @@ const DashboardPage = () => {
                             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                             Back to Cities
                         </Link>
-                        <h1 className="text-4xl md:text-5xl font-bold text-white">{city || "New York City"}</h1>
+                        <h1 className="text-4xl md:text-5xl font-bold text-white">{data.city}</h1>
                     </div>
 
                     <div className="flex items-center gap-2 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-sm text-slate-400 backdrop-blur-md">
@@ -337,10 +299,11 @@ const DashboardPage = () => {
                 {/* Domain Overview */}
                 <div className="mb-12">
                     <h2 className="text-2xl font-bold text-white mb-6">Domain Overview</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                         <DomainCard title="Weather" value={data.temp.val} unit={data.temp.unit} color={data.temp.color} icon={Thermometer} chartData={data.temp.chartData} />
                         <DomainCard title="Air Quality" value={data.aqi.val} unit="AQI" color={data.aqi.color} icon={Wind} chartData={data.aqi.chartData} />
                         <DomainCard title="Traffic" value={data.traffic.val} unit="/10" color={data.traffic.color} icon={Car} chartData={data.traffic.chartData} />
+                        <DomainCard title="Agriculture" value={data.agriculture.val} unit={data.agriculture.unit} color={data.agriculture.color} icon={Sprout} chartData={data.agriculture.chartData} />
                         <DomainCard title="Health Index" value={data.health.score} unit="/100" color="text-rose-400" icon={Activity} chartData={data.health.chartData || [80, 82, 85, 83, 84, 83, 83]} />
                     </div>
                 </div>
