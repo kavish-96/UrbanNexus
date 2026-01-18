@@ -51,7 +51,18 @@ def sync_all_cities_weather():
                     'rainfall': rainfall
                 }
             )
+
             
+            # 4. Trigger Risk Re-calculation
+            try:
+                from analytics.services.risk_engine import trigger_risk_calculation
+                trigger_risk_calculation(city)
+            except ImportError:
+                # If module not ready, skip
+                pass
+            except Exception as e:
+                logger.error(f"Risk calculation failed for {city.city_name}: {e}")
+
             action = "Created" if created else "Updated"
             results["success"].append(f"{city.city_name}: {action} (T:{temp}C, R:{rainfall}mm)")
 

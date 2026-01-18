@@ -29,7 +29,7 @@ class WeatherData(models.Model):
     temperature = models.FloatField(help_text="Temperature in Celsius")
     humidity = models.FloatField(help_text="Humidity percentage")
     rainfall = models.FloatField(help_text="Rainfall in mm")
-    ingested_at = models.DateTimeField(auto_now_add=True)
+    ingested_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         managed = True

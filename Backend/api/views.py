@@ -104,6 +104,7 @@ class CityDashboardView(APIView):
             "latest_stats": {
                 "temperature": weather.temperature if weather else None,
                 "humidity": weather.humidity if weather else None,
+                "rainfall": weather.rainfall if weather else 0,
                 "aqi": aqi.aqi if aqi else None,
                 "pm25": aqi.pm25 if aqi else None,
                 "traffic_density": traffic.traffic_density if traffic else None,

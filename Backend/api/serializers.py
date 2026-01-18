@@ -2,9 +2,15 @@ from rest_framework import serializers
 from .models import City, WeatherData, AirQuality, TrafficData, AgricultureData, HealthIndex
 
 class CitySerializer(serializers.ModelSerializer):
+    current_risk = serializers.SerializerMethodField()
+
     class Meta:
         model = City
         fields = '__all__'
+
+    def get_current_risk(self, obj):
+        latest_health = obj.health_logs.order_by('-date').first()
+        return latest_health.risk_level if latest_health else "Unknown"
 
 class WeatherDataSerializer(serializers.ModelSerializer):
     city_name = serializers.ReadOnlyField(source='city.city_name')
