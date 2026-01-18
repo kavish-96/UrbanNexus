@@ -139,4 +139,16 @@ export const createHealthLog = async (healthData) => {
     }
 };
 
+export const runSimulation = async (cityId, scenarioData) => {
+    // scenarioData format: { temperature: 30, traffic: 8, rain: 0 }
+    // endpoint: /analytics/simulate/<city_id>/
+    try {
+        const response = await api.post(`/analytics/simulate/${cityId}/`, scenarioData);
+        return response.data;
+    } catch (error) {
+        console.error("Simulation failed:", error);
+        throw error;
+    }
+};
+
 export default api;

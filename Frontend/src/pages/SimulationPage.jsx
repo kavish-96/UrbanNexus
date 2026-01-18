@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { FlaskConical, RotateCcw, Thermometer, Car, CloudRain, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import ParticleBackground from '../components/ParticleBackground';
+import { runSimulation } from '../services/api';
 
 const SimulationPage = () => {
     // --- State ---
@@ -17,44 +18,45 @@ const SimulationPage = () => {
 
     // --- Logic ---
     useEffect(() => {
-        // Simple impact logic for demo
-        // Ideal: Temp 22, Traffic 2, Rain 30
+        const timer = setTimeout(async () => {
+            try {
+                // Call Python Backend (City ID 1 = Delhi)
+                const result = await runSimulation(1, {
+                    temperature: temp,
+                    traffic_density: traffic,
+                    rainfall: rain
+                });
 
-        const baseScore = 72; // Current Baseline
+                console.log("Simulation Result:", result);
 
-        // Temp penalty: -1.5 points per degree away from 22
-        const tempPenalty = Math.abs(temp - 22) * 1.5;
+                // Assuming backend returns 'simulated_risk_score' (Risk: High=Bad)
+                // We convert to Health Score (High=Good) for UI: 100 - Risk
+                const risk = result.simulated_risk_score !== undefined ? result.simulated_risk_score : 50;
+                const healthScore = 100 - Math.round(risk);
 
-        // Traffic penalty: -3 points per level
-        const trafficPenalty = traffic * 3;
+                setResultScore(healthScore);
+                setScoreDelta(healthScore - 72); // Baseline 72
 
-        // Rain bonus/penalty: 
-        // 10-40mm is ideal (clean air). Too little = dust. Too much = flood risk/overcast.
-        let rainEffect = 0;
-        if (rain >= 10 && rain <= 40) rainEffect = 5; // Bonus
-        else if (rain === 0) rainEffect = -5; // Dust
-        else if (rain > 80) rainEffect = -10; // Storm
+                // Update impacts if backend provides them, otherwise keep estimates or zero
+                // (For now, keeping estimates to ensure UI feedback isn't empty)
+                // AQI Change Estimate:
+                let aqiDelta = (traffic - 3) * 10 + Math.max(0, temp - 25) * 2 - (rain > 5 ? 20 : 0);
+                setAqiChange(Math.round(aqiDelta));
 
-        let calculated = 100 - tempPenalty - trafficPenalty + rainEffect;
-        calculated = Math.min(100, Math.max(0, Math.round(calculated)));
+                // Crop Yield Estimate:
+                let crop = 0;
+                if (temp > 35) crop -= 20;
+                if (temp < 10) crop -= 30;
+                if (rain < 5) crop -= 15;
+                if (rain > 80) crop -= 10;
+                setCropImpact(crop);
 
-        setResultScore(calculated);
-        setScoreDelta(calculated - baseScore);
+            } catch (error) {
+                console.error("Simulation error", error);
+            }
+        }, 500); // Debounce 500ms
 
-        // AQI Change: Driven by Traffic and Heat
-        // Baseline traffic 3. Each level > 3 adds 15 AQI. Heat > 25 adds 2 AQI/deg. Rain reduces AQI.
-        let aqiDelta = (traffic - 3) * 10 + Math.max(0, temp - 25) * 2 - (rain > 5 ? 20 : 0);
-        setAqiChange(Math.round(aqiDelta));
-
-        // Crop Yield: Driven by Rain and Temp
-        // Ideal: Temp 20-30, Rain 20-60.
-        let crop = 0;
-        if (temp > 35) crop -= 20;
-        if (temp < 10) crop -= 30;
-        if (rain < 5) crop -= 15;
-        if (rain > 80) crop -= 10;
-        setCropImpact(crop);
-
+        return () => clearTimeout(timer);
     }, [temp, traffic, rain]);
 
     const handleReset = () => {
