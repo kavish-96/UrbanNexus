@@ -109,7 +109,18 @@ class CityDashboardView(APIView):
                 "traffic_density": traffic.traffic_density if traffic else None,
                 "health_risk": health.health_risk_score if health else None,
                 "risk_level": health.risk_level if health else None,
+                "weather_updated_at": weather.ingested_at if weather else None,
             },
             "recent_crops": AgricultureDataSerializer(agro, many=True).data
         }
         return Response(data)
+
+from api.services.weather_sync import sync_all_cities_weather
+
+class SyncWeatherView(APIView):
+    """
+    On-Demand ETL: Triggers a sync of live weather data for all cities.
+    """
+    def post(self, request):
+        report = sync_all_cities_weather()
+        return Response(report)

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CityViewSet, WeatherViewSet, AirQualityViewSet, 
     TrafficViewSet, AgricultureViewSet, HealthIndexViewSet,
-    CityDashboardView
+    CityDashboardView, SyncWeatherView
 )
 
 router = DefaultRouter()
@@ -20,4 +20,5 @@ urlpatterns = [
     
     # Custom Analytics URLs
     path('dashboard/', CityDashboardView.as_view(), name='city-dashboard'),
+    path('sync/weather/', SyncWeatherView.as_view(), name='sync-weather'),
 ]

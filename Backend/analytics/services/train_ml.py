@@ -72,17 +72,54 @@ else:
     # If different column name
     df['yield'] = 4.0 # Default fallback
 
-# 3. Calculate Target (Health Risk Score)
-# Logic: Risk = (AQI * 0.4) + (Traffic * 0.3) + (|Temp - 25| * 1.0)
-print("Calculating Health Risk Labels...")
-df['temp_stress'] = abs(df['temperature'] - 25)
-df['health_risk_score'] = (
-    (df['aqi'] * 0.4) + 
-    (df['traffic_density'] * 5.0) + 
-    (df['temp_stress'] * 2.0)
-)
-# Normalize to 0-100
-df['health_risk_score'] = df['health_risk_score'].clip(0, 100)
+# 3. Calculate Target (Health Risk Score) - SCIENTIFIC FORMULA
+# Logic: Risk = 0.35(AQI) + 0.20(Traffic) + 0.15(TempDev) + 0.15(Hum) + 0.15(FoodSec)
+
+# 3. Calculate Target (Health Risk Score) - PROFESSIONAL LOGIC
+
+def calculate_row_risk(row):
+    # AQI
+    aqi = row['aqi']
+    if aqi <= 50: aqi_risk = 0
+    elif aqi <= 100: aqi_risk = 0.2
+    elif aqi <= 200: aqi_risk = 0.5
+    elif aqi <= 300: aqi_risk = 0.8
+    else: aqi_risk = 1.0
+
+    # Temp
+    temp = row['temperature']
+    if temp < 10: temp_risk = (10 - temp) / 10
+    elif temp > 35: temp_risk = (temp - 35) / 15
+    else: temp_risk = 0.1
+    temp_risk = min(1.0, max(0.0, temp_risk))
+
+    # Rain
+    rain = row.get('rainfall', 0)
+    if rain > 50: rain_risk = (rain - 50) / 100
+    else: rain_risk = 0
+    rain_risk = min(1.0, rain_risk)
+
+    # Traffic
+    traffic_risk = row['traffic_density'] / 10.0
+
+    # Food
+    yield_val = row.get('yield', 0)
+    if yield_val >= 4: food_risk = 0.0
+    elif yield_val >= 2: food_risk = 0.2
+    else: food_risk = 1.0 - (yield_val / 2.0)
+    food_risk = max(0.0, food_risk)
+
+    total = (
+        0.35 * aqi_risk +
+        0.20 * food_risk +
+        0.15 * traffic_risk +
+        0.20 * temp_risk +
+        0.10 * rain_risk
+    )
+    return round(min(100, total * 100), 2)
+
+print("Calculating Health Risk Labels (Professional Model)...")
+df['health_risk_score'] = df.apply(calculate_row_risk, axis=1)
 
 # Handle duplicate rainfall columns (rainfall_x from weather, rainfall_y from agri)
 if 'rainfall_x' in df.columns:

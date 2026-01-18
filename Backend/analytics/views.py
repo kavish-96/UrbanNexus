@@ -64,7 +64,7 @@ class HealthRiskForecastView(APIView):
             "humidity": weather.humidity,
             "rainfall": weather.rainfall,
             "traffic_density": traffic.traffic_density,
-            "yield": agri.yeild,
+            "yield": agri.yield_amount,
         }
 
         day3 = predict_risk(model, features)

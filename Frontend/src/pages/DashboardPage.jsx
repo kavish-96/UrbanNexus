@@ -3,11 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     ArrowLeft, Clock, Thermometer, Wind, Car, Droplets,
-    Activity, Info, ChevronRight, TrendingUp, Sprout
+    Activity, Info, ChevronRight, TrendingUp, Sprout, RefreshCw
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import ParticleBackground from '../components/ParticleBackground';
-import { getDashboardData } from '../services/api';
+import { getDashboardData, syncLiveWeather } from '../services/api';
 
 // --- Sub-components (Restored) ---
 
@@ -78,6 +78,7 @@ const StatCard = ({ data }) => {
                     <span className={`text-sm font-medium items-center gap-1 ${data.trend === 'Good' ? 'text-emerald-400' : 'text-slate-500'}`}>
                         {data.unit}
                     </span>
+                    {data.sub && <div className="text-xs text-slate-500 ml-2">{data.sub}</div>}
                 </div>
 
                 {/* Mini Chart */}
@@ -151,6 +152,26 @@ const DashboardPage = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        try {
+            await syncLiveWeather();
+            // Refresh data after sync
+            const apiData = await getDashboardData(cityId);
+            const stats = apiData.latest_stats;
+            // ... (Basic refresh logic, but easier to just re-trigger fetchData via effect if we had a trigger dependency, 
+            // but here let's just reload the page or re-call fetchData logic. 
+            // Better: Extract fetchData into a useCallback, but for speed, I'll just reload the page for now or alert success)
+            alert("Live Weather Synced & Updated!");
+            window.location.reload();
+        } catch (err) {
+            alert("Sync Failed: " + err.message);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -166,6 +187,7 @@ const DashboardPage = () => {
                         val: stats.temperature,
                         unit: "°C",
                         label: "Temperature",
+                        sub: stats.weather_updated_at ? new Date(stats.weather_updated_at).toLocaleTimeString() : "Just now",
                         trend: "+0°", // Placeholder as API doesn't give trend yet
                         color: "text-sky-400",
                         bg: "bg-sky-500/10",
@@ -259,6 +281,15 @@ const DashboardPage = () => {
                         <Clock className="w-4 h-4" />
                         <span>Last updated: {new Date().toLocaleTimeString()}</span>
                     </div>
+
+                    <button
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <span>{isSyncing ? 'Syncing...' : 'Sync Live Data'}</span>
+                    </button>
                 </div>
 
                 {/* Stats Row */}
