@@ -40,7 +40,7 @@ const Navbar = () => {
                     Cities
                 </Link>
                 <Link
-                    to="/dashboard/1"
+                    to="/dashboard/2"
                     className={`px-5 py-1.5 rounded-full text-sm font-medium transition-all ${isActive('/dashboard') ? 'bg-slate-800/80 text-cyan-400 shadow-sm' : 'text-slate-400 hover:text-white'}`}
                 >
                     Dashboard

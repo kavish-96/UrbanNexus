@@ -1,26 +1,51 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FlaskConical, RotateCcw, Thermometer, Car, CloudRain, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import ParticleBackground from '../components/ParticleBackground';
+import { getDashboardData } from '../services/api';
 
 const SimulationPage = () => {
-    // --- State ---
-    const [temp, setTemp] = useState(33); // Default 33 from screenshot
-    const [traffic, setTraffic] = useState(5); // Default 5
-    const [rain, setRain] = useState(20); // Default 20mm
+    const { cityId } = useParams();
 
-    const [resultScore, setResultScore] = useState(53);
-    const [aqiChange, setAqiChange] = useState(30);
-    const [cropImpact, setCropImpact] = useState(-16);
-    const [scoreDelta, setScoreDelta] = useState(-19);
+    // --- State ---
+    const [temp, setTemp] = useState(20);
+    const [traffic, setTraffic] = useState(2);
+    const [rain, setRain] = useState(0);
+
+    // UI Results
+    const [resultScore, setResultScore] = useState(0);
+    const [aqiChange, setAqiChange] = useState(0);
+    const [cropImpact, setCropImpact] = useState(0);
+    const [scoreDelta, setScoreDelta] = useState(0);
+    const [baseScore, setBaseScore] = useState(72);
+
+    // --- Load Live Data (Sync with Dashboard) ---
+    useEffect(() => {
+        const fetchBaseline = async () => {
+            if (!cityId) return;
+            try {
+                const data = await getDashboardData(cityId);
+                const stats = data.latest_stats;
+
+                if (stats) {
+                    setTemp(stats.temperature || 20);
+                    setTraffic(stats.traffic_density || 2);
+                    setRain(stats.rainfall || 0); // Rainfall isn't always in stats snippet, but let's assume valid
+                    setBaseScore(100 - (stats.health_risk || 20)); // Approximate base
+                }
+            } catch (err) {
+                console.error("Failed to load baseline sim data", err);
+            }
+        };
+        fetchBaseline();
+    }, [cityId]);
 
     // --- Logic ---
     useEffect(() => {
         // Simple impact logic for demo
         // Ideal: Temp 22, Traffic 2, Rain 30
-
-        const baseScore = 72; // Current Baseline
 
         // Temp penalty: -1.5 points per degree away from 22
         const tempPenalty = Math.abs(temp - 22) * 1.5;
@@ -55,7 +80,7 @@ const SimulationPage = () => {
         if (rain > 80) crop -= 10;
         setCropImpact(crop);
 
-    }, [temp, traffic, rain]);
+    }, [temp, traffic, rain, baseScore]);
 
     const handleReset = () => {
         setTemp(22);
@@ -181,7 +206,10 @@ const SimulationPage = () => {
                     <FlaskConical className="w-5 h-5" />
                     <span>What-If Lab</span>
                 </div>
-                <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">Scenario Simulation</h1>
+                <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">
+                    Scenario Simulation
+                    <span className="block md:inline md:ml-4 text-2xl md:text-3xl text-slate-500 font-normal">(Delhi Base Model)</span>
+                </h1>
                 <p className="text-slate-400 text-lg max-w-2xl mb-12">
                     Adjust environmental parameters and observe how changes cascade through interconnected urban systems.
                 </p>

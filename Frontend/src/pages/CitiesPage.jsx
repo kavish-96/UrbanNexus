@@ -10,22 +10,28 @@ const CitiesPage = () => {
     const [cities, setCities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [filterRisk, setFilterRisk] = useState('All');
 
     useEffect(() => {
         const fetchCities = async () => {
             try {
                 const data = await getCities();
-                console.log("Fetched Cities Data:", data); // Debugging: Check exact field names
                 setCities(data);
             } catch (error) {
                 console.error("Failed to load cities", error);
-                setError("Failed to connect to backend API. Please check if the server is running at http://120.120.122.174:8000");
+                setError("Failed to connect to backend API.");
             } finally {
                 setLoading(false);
             }
         };
         fetchCities();
     }, []);
+
+    const filteredCities = cities.filter(city => {
+        if (filterRisk === 'All') return true;
+        return city.current_risk === filterRisk;
+    });
+
     return (
         <div className="relative min-h-screen bg-slate-950 font-sans text-white selection:bg-cyan-500/30 selection:text-cyan-200">
             <ParticleBackground />
@@ -65,7 +71,8 @@ const CitiesPage = () => {
                     {['All', 'Low', 'Medium', 'High'].map((filter, i) => (
                         <button
                             key={filter}
-                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${i === 0
+                            onClick={() => setFilterRisk(filter)}
+                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${filterRisk === filter
                                 ? 'bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
                                 : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                                 }`}
@@ -84,7 +91,9 @@ const CitiesPage = () => {
                             <p className="font-bold">Error Loading Data</p>
                             <p className="text-sm">{error}</p>
                         </div>
-                    ) : cities.map((city, index) => (
+                    ) : filteredCities.length === 0 ? (
+                        <div className="text-slate-500 text-center col-span-full py-12">No cities found with {filterRisk} risk.</div>
+                    ) : filteredCities.map((city, index) => (
                         <Link
                             to={`/dashboard/${city.city_id}`}
                             key={index}
@@ -100,7 +109,7 @@ const CitiesPage = () => {
                                         <MapPin className="w-4 h-4" />
                                         <span className="text-sm">{city.state}</span>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white bg-slate-700`}>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold text-white bg-slate-700 group-hover:bg-cyan-600 transition-colors`}>
                                         View Data
                                     </span>
                                 </div>
@@ -110,17 +119,18 @@ const CitiesPage = () => {
                                 <div className="flex items-center gap-6 text-slate-400 text-sm font-medium mb-6">
                                     <div className="flex items-center gap-1.5">
                                         <Users className="w-4 h-4" />
-                                        {/* Pop placeholder or from API if avail */}
-                                        --
+                                        <span className={`${city.current_risk === 'High' ? 'text-rose-400' : city.current_risk === 'Medium' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                            Risk: {city.current_risk}
+                                        </span>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-cyan-400">
                                         <Activity className="w-4 h-4" />
-                                        Live data
+                                        Live
                                     </div>
                                 </div>
 
                                 <div className="text-xs text-slate-600 font-mono">
-                                    {city.latitude && city.longitude ? `${city.latitude}°N, ${city.longitude}°W` : ''}
+                                    {city.latitude && city.longitude ? `${Number(city.latitude).toFixed(2)}°N, ${Number(city.longitude).toFixed(2)}°W` : ''}
                                 </div>
                             </motion.div>
                         </Link>

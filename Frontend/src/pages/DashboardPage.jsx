@@ -1,15 +1,15 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     ArrowLeft, Clock, Thermometer, Wind, Car, Droplets,
-    Activity, Info, ChevronRight, TrendingUp, Sprout, RefreshCw
+    Activity, Info, TrendingUp, Sprout, RefreshCw
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import ParticleBackground from '../components/ParticleBackground';
 import { getDashboardData, syncLiveWeather } from '../services/api';
 
-// --- Sub-components (Restored) ---
+// --- Sub-components ---
 
 const InteractiveSparkline = ({ data, color, height = 40 }) => {
     // Determine color class -> hex for SVG
@@ -154,16 +154,19 @@ const DashboardPage = () => {
     const [error, setError] = useState(null);
     const [isSyncing, setIsSyncing] = useState(false);
 
+    // Function to calculate logical status labels
+    const getStatus = (val, type) => {
+        if (type === 'aqi') return val > 150 ? "Unhealthy" : val > 100 ? "Poor" : val > 50 ? "Moderate" : "Good";
+        if (type === 'traffic') return val > 7 ? "Congested" : val > 4 ? "Moderate" : "Clear";
+        if (type === 'temp') return val > 35 ? "Hot" : val < 10 ? "Cold" : "Pleasant";
+        return "Normal";
+    };
+
     const handleSync = async () => {
         setIsSyncing(true);
         try {
             await syncLiveWeather();
-            // Refresh data after sync
-            const apiData = await getDashboardData(cityId);
-            const stats = apiData.latest_stats;
-            // ... (Basic refresh logic, but easier to just re-trigger fetchData via effect if we had a trigger dependency, 
-            // but here let's just reload the page or re-call fetchData logic. 
-            // Better: Extract fetchData into a useCallback, but for speed, I'll just reload the page for now or alert success)
+            // In a real app we would wait a moment or confirm
             alert("Live Weather Synced & Updated!");
             window.location.reload();
         } catch (err) {
@@ -181,24 +184,36 @@ const DashboardPage = () => {
 
                 // Transform API data to Component format
                 const stats = apiData.latest_stats;
+
+                // Determine timestamps
+                const weatherTime = stats.weather_updated_at ? new Date(stats.weather_updated_at).toLocaleString() : "N/A";
+
+                const tempStatus = getStatus(stats.temperature, 'temp');
+                const aqiStatus = getStatus(stats.aqi, 'aqi');
+                const trafficStatus = getStatus(stats.traffic_density, 'traffic');
+
                 const transformed = {
                     city: apiData.city,
+                    lastUpdated: weatherTime,
                     temp: {
                         val: stats.temperature,
                         unit: "°C",
                         label: "Temperature",
-                        sub: stats.weather_updated_at ? new Date(stats.weather_updated_at).toLocaleTimeString() : "Just now",
-                        trend: "+0°", // Placeholder as API doesn't give trend yet
+                        sub: `Feels ${tempStatus}. Humidity is ${stats.humidity}%.`,
+                        trend: tempStatus,
+                        statusColor: tempStatus === 'Hot' ? 'border-rose-500/50 text-rose-400' : 'border-emerald-500/50 text-emerald-400',
                         color: "text-sky-400",
                         bg: "bg-sky-500/10",
                         icon: Thermometer,
-                        chartData: [stats.temperature - 2, stats.temperature - 1, stats.temperature] // Mock trend
+                        chartData: [stats.temperature - 2, stats.temperature - 1, stats.temperature]
                     },
                     aqi: {
                         val: stats.aqi,
                         unit: "AQI",
                         label: "Air Quality",
-                        trend: stats.aqi > 100 ? "Poor" : "Good",
+                        trend: aqiStatus,
+                        sub: `PM2.5 levels are contributing to ${aqiStatus.toLowerCase()} air.`,
+                        statusColor: stats.aqi > 100 ? 'border-rose-500/50 text-rose-400' : 'border-emerald-500/50 text-emerald-400',
                         color: stats.aqi > 100 ? "text-rose-400" : "text-emerald-400",
                         bg: stats.aqi > 100 ? "bg-rose-500/10" : "bg-emerald-500/10",
                         icon: Wind,
@@ -206,9 +221,11 @@ const DashboardPage = () => {
                     },
                     traffic: {
                         val: stats.traffic_density,
-                        unit: "/10",
+                        unit: "/ 10",
                         label: "Traffic Density",
-                        sub: "Real-time index",
+                        sub: `Congestion Level: ${trafficStatus}`,
+                        trend: trafficStatus,
+                        statusColor: stats.traffic_density > 7 ? 'border-rose-500/50 text-rose-400' : 'border-emerald-500/50 text-emerald-400',
                         color: "text-purple-400",
                         bg: "bg-purple-500/10",
                         icon: Car,
@@ -218,6 +235,9 @@ const DashboardPage = () => {
                         val: stats.humidity,
                         unit: "%",
                         label: "Humidity",
+                        sub: "Relative humidity level",
+                        trend: stats.humidity > 80 ? "High" : "Normal",
+                        statusColor: "border-blue-500/50 text-blue-400",
                         color: "text-blue-400",
                         bg: "bg-blue-500/10",
                         icon: Droplets,
@@ -227,20 +247,21 @@ const DashboardPage = () => {
                         val: apiData.recent_crops && apiData.recent_crops.length > 0 ? apiData.recent_crops[0].yield_amount : 0,
                         unit: "tons/ha",
                         label: "Crop Yield",
+                        trend: "Stable",
                         color: "text-amber-400",
                         bg: "bg-amber-500/10",
                         icon: Sprout,
-                        chartData: [4, 4.2, 4.5, 4.3, 4.5] // Mock chart for now or map from history
+                        chartData: [4, 4.2, 4.5, 4.3, 4.5]
                     },
                     health: {
                         score: 100 - Math.round(stats.health_risk),
-                        status: stats.risk_level,
-                        desc: `Composite risk calculated from AQI and Traffic.`
+                        status: stats.risk_level || "Unknown",
+                        desc: `Risk Factor: ${stats.risk_level || "Unknown"}. Calculated from AQI (${stats.aqi}) & Traffic.`
                     },
-                    insight: `Current risk level is ${stats.risk_level}. AQI is ${stats.aqi}.`,
+                    insight: `Current environment analysis: Air quality is ${(aqiStatus || "unknown").toLowerCase()} with ${(trafficStatus || "unknown").toLowerCase()} traffic flow. Health risk is ${(stats.risk_level || "unknown").toLowerCase()}. Recommended to monitor PM2.5 levels closely.`,
                     correlations: [
-                        { t1: "Weather", t2: "Air Quality", desc: "Current atmospheric conditions are influencing local pollution dispersion." },
-                        { t1: "Traffic", t2: "Health", desc: "Traffic congestion is a contributing factor to the current health risk index." }
+                        { t1: "Weather", t2: "Air Quality", desc: "Current atmospheric conditions, including wind speed and temperature, are directly influencing the dispersion of local pollutants." },
+                        { t1: "Traffic", t2: "Health", desc: "Vehicular emissions from current traffic density are a significant weighted factor in the calculated public health risk index." }
                     ]
                 };
 
@@ -279,16 +300,16 @@ const DashboardPage = () => {
 
                     <div className="flex items-center gap-2 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-sm text-slate-400 backdrop-blur-md">
                         <Clock className="w-4 h-4" />
-                        <span>Last updated: {new Date().toLocaleTimeString()}</span>
+                        <span>Last Updated: <span className="text-white font-medium">{data.lastUpdated}</span></span>
                     </div>
 
                     <button
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20"
                     >
                         <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                        <span>{isSyncing ? 'Syncing...' : 'Sync Live Data'}</span>
+                        <span>{isSyncing ? 'Syncing Live Data...' : 'Sync Live Data'}</span>
                     </button>
                 </div>
 
@@ -305,24 +326,24 @@ const DashboardPage = () => {
                     {/* Right Health Gauge */}
                     <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-2xl backdrop-blur-sm flex flex-col items-center justify-center text-center">
                         <Gauge score={data.health.score} />
-                        <div className={`mt-6 px-4 py-1.5 rounded-full text-xs font-bold text-slate-950 ${data.health.score > 70 ? "bg-green-400" : data.health.score > 50 ? "bg-amber-400" : "bg-red-400"}`}>
-                            {data.health.status}
+                        <div className="mt-8">
+                            <h4 className="text-lg font-bold text-white mb-2">Health Index</h4>
+                            <p className="text-sm text-slate-400 max-w-[200px] leading-relaxed">
+                                {data.health.desc}
+                            </p>
                         </div>
-                        <p className="text-sm text-slate-400 mt-4 max-w-[200px]">
-                            {data.health.desc}
-                        </p>
                     </div>
                 </div>
 
                 {/* Insight Banner */}
-                <div className="mb-12 relative overflow-hidden rounded-xl bg-slate-900/60 border-l-4 border-cyan-500 p-8 backdrop-blur-md">
+                <div className="mb-12 relative overflow-hidden rounded-xl bg-slate-900/60 border-l-4 border-cyan-500 p-8 backdrop-blur-md shadow-2xl">
                     <div className="relative z-10 flex items-start gap-4">
                         <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0">
                             <TrendingUp className="w-5 h-5 text-cyan-400" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-white mb-1">Current Insight</h3>
-                            <p className="text-slate-400">{data.insight}</p>
+                            <h3 className="text-lg font-bold text-white mb-2">Live System Environment Insight</h3>
+                            <p className="text-slate-300 leading-relaxed">{data.insight}</p>
                         </div>
                     </div>
                 </div>
@@ -331,11 +352,11 @@ const DashboardPage = () => {
                 <div className="mb-12">
                     <h2 className="text-2xl font-bold text-white mb-6">Domain Overview</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                        <DomainCard title="Weather" value={data.temp.val} unit={data.temp.unit} color={data.temp.color} icon={Thermometer} chartData={data.temp.chartData} />
-                        <DomainCard title="Air Quality" value={data.aqi.val} unit="AQI" color={data.aqi.color} icon={Wind} chartData={data.aqi.chartData} />
-                        <DomainCard title="Traffic" value={data.traffic.val} unit="/10" color={data.traffic.color} icon={Car} chartData={data.traffic.chartData} />
-                        <DomainCard title="Agriculture" value={data.agriculture.val} unit={data.agriculture.unit} color={data.agriculture.color} icon={Sprout} chartData={data.agriculture.chartData} />
-                        <DomainCard title="Health Index" value={data.health.score} unit="/100" color="text-rose-400" icon={Activity} chartData={data.health.chartData || [80, 82, 85, 83, 84, 83, 83]} />
+                        <DomainCard title="Weather" value={data.temp.val} unit={data.temp.unit} color={data.temp.color} icon={Thermometer} chartData={data.temp.chartData} status={data.temp.trend} />
+                        <DomainCard title="Air Quality" value={data.aqi.val} unit="AQI" color={data.aqi.color} icon={Wind} chartData={data.aqi.chartData} status={data.aqi.trend} />
+                        <DomainCard title="Traffic" value={data.traffic.val} unit="/10" color={data.traffic.color} icon={Car} chartData={data.traffic.chartData} status={data.traffic.trend} />
+                        <DomainCard title="Agriculture" value={data.agriculture.val} unit={data.agriculture.unit} color={data.agriculture.color} icon={Sprout} chartData={data.agriculture.chartData} status="Harvesting" />
+                        <DomainCard title="Health Index" value={data.health.score} unit="/100" color="text-rose-400" icon={Activity} chartData={data.health.chartData || [80, 82, 85, 83, 84, 83, 83]} status={data.health.status} />
                     </div>
                 </div>
 
@@ -344,7 +365,7 @@ const DashboardPage = () => {
                     <h2 className="text-2xl font-bold text-white mb-6">System Correlations</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {data.correlations.map((corr, i) => (
-                            <div key={i} className="bg-slate-900/40 border-l-4 border-blue-500 p-6 rounded-r-xl backdrop-blur-sm flex items-start gap-4">
+                            <div key={i} className="bg-slate-900/40 border-l-4 border-blue-500 p-6 rounded-r-xl backdrop-blur-sm flex items-start gap-4 hover:bg-slate-900/60 transition-colors">
                                 <div className="mt-1">
                                     <Info className="w-5 h-5 text-blue-500" />
                                 </div>
